@@ -1,0 +1,92 @@
+<!DOCTYPE HTML>
+
+<html>
+  <head>
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon">
+
+  </head>
+
+  <body>
+    <h3>WebGL Canvas From WASM</h3>
+    <canvas id="gl_canvas" width="640" height="460"></canvas>
+
+    <script defer>
+      let gl;
+      let TICKS = 0;
+
+      function glClearColor(r, g, b, a) {
+        if (gl) {
+          gl.clearColor(r, g, b, a);
+        }
+      }
+
+      function glClear(bitmask) {
+        if (gl) {
+          gl.clear(bitmask);
+        }
+      }
+
+      function sinf(f) {
+        return Math.sin(f);
+      }
+
+      function ticks() {
+        return TICKS;
+      }
+
+      async function main() {
+        const canvas = document.getElementById("gl_canvas")
+        if (canvas === null) {
+          alert("Unable to find canvas.");
+          return;
+        }
+
+        gl = canvas.getContext("webgl");
+
+        if (gl === null) {
+          alert("Unable to init WebGL.");
+          return;
+        }
+
+        const importObject = {
+          env: {
+            consoleLog:   console.log,
+            glClearColor: glClearColor,
+            glClear:      glClear,
+            sinf:         sinf,
+            cosf:         Math.cos,
+            ticks:        ticks,
+          }
+        };
+
+        gl.clearColor(1.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        let resultObject = await WebAssembly.instantiateStreaming(
+                                fetch('./wasm.wasm'), 
+                                importObject
+                            ).then()
+                            .catch( e => {
+                                // console.log(e instanceof CompileError); // true
+                                console.log("msg:   " + e.message); 
+                                console.log("type:  " + e.name); 
+                                console.log("file:  " + e.fileName); 
+                                console.log("line:  " + e.lineNumber);
+                                console.log("coll:  " + e.columnNumber); 
+                                console.log("stack: " + e.stack);
+                            });
+
+        function draw(now) {
+          TICKS += 1;
+          resultObject.instance.exports.Main();
+          requestAnimationFrame(draw);
+        }
+
+        requestAnimationFrame(draw);
+      }
+
+      main();
+
+    </script>
+  </body>
+</html>
